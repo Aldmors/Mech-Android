@@ -1,0 +1,57 @@
+---
+description: Material Design 3 for this Compose app. Use M3 components and theme tokens; reuse App* helpers and DesignTokens.
+alwaysApply: true
+---
+
+# Material Design 3 (Jetpack Compose)
+
+This app is **Material 3 only**. Use `androidx.compose.material3`. Material Icons (`androidx.compose.material.icons`) are allowed. Never import `androidx.compose.material` (M2).
+
+Adapt to existing UI. Do not invent a parallel design system.
+
+## Theme tokens
+
+- Wrap new UI in `CarExpenseTrackerTheme`.
+- Colors: `MaterialTheme.colorScheme` (wired in `Theme.kt` from `DesignTokens.Palette`). Do not hardcode `Color(0x…)` in screens.
+- Exception: event semantic colors (`DesignTokens.Palette.fuel` / `repair` / `papers`) via `EventTypeBadge`.
+- Type: `MaterialTheme.typography` (`labelMedium`, `bodyMedium`, `titleMedium`, `headlineSmall`).
+- Space: `DesignTokens.Spacing` (`xs` 4, `sm` 8, `md` 16, `lg` 24, `xl` 32). No one-off `N.dp` padding.
+- Honor `isSystemInDarkTheme()`. If you add a color, add it to **both** light and dark schemes in `Theme.kt`.
+
+```kotlin
+// BAD
+Text("Monthly", color = Color(0xFF6B7280), fontSize = 12.sp)
+
+// GOOD
+Text("Monthly", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+```
+
+## Components — reuse first
+
+Prefer existing helpers in `ui/components/Components.kt`: `AppScreen`, `AppCard`, `MetricCard`, `PrimaryButton`, `SecondaryButton`, `SectionHeader`, `EmptyStateCard`, `CarHeader`, `EventTypeBadge`.
+
+When building new UI, use M3 as-is: `Scaffold`, `NavigationBar`, `Card`, `Button`, `OutlinedButton`, `FilterChip`, `OutlinedTextField`, `ListItem`, `Icon`, `SnackbarHost`. Do not wrap them unless the same pattern already exists.
+
+- Primary form/screen action: filled `Button` / `PrimaryButton`.
+- Secondary: `OutlinedButton` / `SecondaryButton`.
+- Destructive: `ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)`.
+- Filters: `FilterChip`, not custom tabs.
+- Lists of settings/actions: `ListItem`.
+- Empty data: `EmptyStateCard`.
+- Bottom nav already lives in `AppNavHost` — do not add a second bar.
+
+## Layout and a11y
+
+- Screens with app bar / FAB / snackbar use `Scaffold` and consume its `padding`.
+- Icon-only controls need `contentDescription` (or `null` if decorative).
+- Touch targets at least 48.dp (M3 defaults already do this — don't shrink them).
+- User-visible strings go through `stringResource`.
+- Loading / error / empty are first-class states, not a blank `Column`.
+
+## Do not
+
+- Mix M2 and M3 on one screen.
+- Bypass `MaterialTheme` with raw `DesignTokens.Palette` for chrome (background, surface, text, accent) — put those on `ColorScheme`.
+- Add a new theme file; extend `Theme.kt` / `DesignTokens.kt`.
+- Disable a control with alpha only; use `enabled = false`.
+- Copy iOS / custom-draw widgets when an M3 component covers it.

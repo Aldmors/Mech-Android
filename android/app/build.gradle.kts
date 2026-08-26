@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
@@ -34,10 +33,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -93,4 +88,12 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// Android Studio still asks Gradle for Java-plugin task names. AGP 9 only has variant tasks.
+tasks.register("unitTestClasses") {
+    dependsOn("compileDebugUnitTestSources")
+}
+tasks.register("androidTestClasses") {
+    dependsOn("compileDebugAndroidTestSources")
 }

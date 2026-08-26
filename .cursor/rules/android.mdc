@@ -1,7 +1,7 @@
 ---
 description: "Cursor rules for Android development with Jetpack Compose integration."
 globs: **/*
-alwaysApply: false
+alwaysApply: true
 ---
 // Android Jetpack Compose .cursorrules
 
