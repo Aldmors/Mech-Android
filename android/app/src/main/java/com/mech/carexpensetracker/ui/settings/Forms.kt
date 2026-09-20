@@ -1,12 +1,13 @@
 package com.mech.carexpensetracker.ui.settings
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,10 +23,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mech.carexpensetracker.R
 import com.mech.carexpensetracker.ui.MainViewModel
+import com.mech.carexpensetracker.ui.components.AppLazyColumn
 import com.mech.carexpensetracker.ui.components.PrimaryButton
-import com.mech.carexpensetracker.ui.components.SecondaryButton
 import com.mech.carexpensetracker.ui.components.SectionHeader
-import com.mech.carexpensetracker.ui.theme.DesignTokens
 import kotlinx.coroutines.launch
 
 @Composable
@@ -39,15 +39,9 @@ fun CarFormScreen(
     val existing = cars.find { it.externalId == carId }
     var name by remember(existing) { mutableStateOf(existing?.name ?: "") }
     var plate by remember(existing) { mutableStateOf(existing?.plateNumber ?: "") }
-    var units by remember(existing) { mutableStateOf(existing?.vehicleUnits ?: "km") }
     val scope = rememberCoroutineScope()
 
-    LazyColumn(modifier = modifier.fillMaxSize().padding(DesignTokens.Spacing.md)) {
-        item {
-            SectionHeader(
-                title = if (carId == null) stringResource(R.string.add_car) else stringResource(R.string.edit),
-            )
-        }
+    AppLazyColumn(modifier = modifier) {
         item {
             OutlinedTextField(
                 value = name,
@@ -65,14 +59,6 @@ fun CarFormScreen(
             )
         }
         item {
-            OutlinedTextField(
-                value = units,
-                onValueChange = { units = it },
-                label = { Text(stringResource(R.string.units)) },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        item {
             PrimaryButton(
                 text = stringResource(R.string.save),
                 onClick = {
@@ -80,7 +66,7 @@ fun CarFormScreen(
                         externalId = carId,
                         name = name,
                         plateNumber = plate.ifBlank { null },
-                        vehicleUnits = units,
+                        vehicleUnits = "km",
                         primaryFuelType = existing?.primaryFuelTypeRaw ?: "gasoline",
                         alternativeFuelType = existing?.alternativeFuelTypeRaw,
                     )
@@ -90,23 +76,28 @@ fun CarFormScreen(
         }
         if (carId != null) {
             item {
-                SecondaryButton(
-                    text = stringResource(R.string.delete),
+                Button(
                     onClick = {
                         viewModel.deleteCar(carId)
                         onDone()
                     },
-                )
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Text(stringResource(R.string.delete))
+                }
             }
         }
         item { SectionHeader(title = stringResource(R.string.cars)) }
         items(cars) { car ->
-            Text(
-                text = car.name,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { scope.launch { viewModel.selectCar(car.externalId) } }
-                    .padding(DesignTokens.Spacing.sm),
+            ListItem(
+                headlineContent = { Text(car.name) },
+                supportingContent = car.plateNumber?.takeIf { it.isNotBlank() }?.let { plate ->
+                    { Text(plate) }
+                },
+                modifier = Modifier.clickable { scope.launch { viewModel.selectCar(car.externalId) } },
             )
         }
     }
@@ -129,8 +120,7 @@ fun AddFuelScreen(
     val scope = rememberCoroutineScope()
     val car by mainViewModel.selectedCar.collectAsStateWithLifecycle()
 
-    LazyColumn(modifier = modifier.fillMaxSize().padding(DesignTokens.Spacing.md)) {
-        item { SectionHeader(title = stringResource(R.string.add_fuel)) }
+    AppLazyColumn(modifier = modifier) {
         item {
             OutlinedTextField(
                 value = mileage,
@@ -224,8 +214,7 @@ fun AddExpenseScreen(
     var comment by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    LazyColumn(modifier = modifier.fillMaxSize().padding(DesignTokens.Spacing.md)) {
-        item { SectionHeader(title = stringResource(R.string.add_expense)) }
+    AppLazyColumn(modifier = modifier) {
         item {
             OutlinedTextField(
                 value = mileage,

@@ -17,6 +17,28 @@ object CarnotesDtos {
     const val NOTES_TABLE = "notes_table.json"
 
     val ALL_TABLES = listOf(GARAGE_TABLE, CAR_EVENTS_TABLE, CAR_REMINDERS_TABLE, NOTES_TABLE)
+
+    fun resolveTableKey(fileName: String?, json: String): String? {
+        normalizeFileName(fileName)?.let { name ->
+            ALL_TABLES.find { it.equals(name, ignoreCase = true) }?.let { return it }
+        }
+        val rows = CarnotesParser.parseTable(json)
+        if (rows.isEmpty()) return null
+        val keys = rows.first().keys
+        return when {
+            keys.contains("vehicle_units") || (keys.contains("vehicle_type") && !keys.contains("car_id")) -> GARAGE_TABLE
+            keys.contains("reminder_date") ||
+                (keys.contains("sub_type") && !keys.contains("type") && keys.contains("car_id")) -> CAR_REMINDERS_TABLE
+            keys.contains("car_id") && (keys.contains("type") || keys.contains("fuel_volume") || keys.contains("total_cost")) ->
+                CAR_EVENTS_TABLE
+            keys.contains("car_id") && (keys.contains("details") || keys.contains("priority")) -> NOTES_TABLE
+            else -> null
+        }
+    }
+
+    private fun normalizeFileName(fileName: String?): String? {
+        return fileName?.substringAfterLast('/')?.trim()?.takeIf { it.isNotEmpty() }
+    }
 }
 
 object CarnotesValueParsers {
@@ -124,9 +146,9 @@ object CarnotesParser {
                 categoryName = CarnotesValueParsers.field(row, listOf("category", "category_name")),
                 partsCost = CarnotesValueParsers.field(row, listOf("parts_cost", "partsCost")),
                 labourCost = CarnotesValueParsers.field(row, listOf("labour_cost", "labor_cost", "labourCost")),
-                fuelTypeRaw = CarnotesValueParsers.field(row, listOf("fuel_type", "primary_fuel_type")),
-                fuelAmount = CarnotesValueParsers.field(row, listOf("fuel_amount", "fuelAmount")),
-                fuelCost = CarnotesValueParsers.field(row, listOf("fuel_cost", "fuelCost")),
+                fuelTypeRaw = CarnotesValueParsers.field(row, listOf("fuel_type", "primary_fuel_type"))?.lowercase(),
+                fuelAmount = CarnotesValueParsers.field(row, listOf("fuel_amount", "fuelAmount", "fuel_volume")),
+                fuelCost = CarnotesValueParsers.field(row, listOf("fuel_cost", "fuelCost", "fuel_unit_cost")),
                 fuelFullTank = CarnotesValueParsers.parseBoolean(
                     CarnotesValueParsers.field(row, listOf("fuel_full_tank", "fuelFullTank")),
                 ),
@@ -150,10 +172,10 @@ object CarnotesParser {
                 carExternalId = carId,
                 title = CarnotesValueParsers.field(row, listOf("title", "name")) ?: "Reminder",
                 dueDateMillis = CarnotesValueParsers.parseLongMillis(
-                    CarnotesValueParsers.field(row, listOf("due_date", "date")),
+                    CarnotesValueParsers.field(row, listOf("due_date", "date", "reminder_date")),
                 ),
                 dueMileage = CarnotesValueParsers.parseInt(
-                    CarnotesValueParsers.field(row, listOf("due_mileage", "mileage")),
+                    CarnotesValueParsers.field(row, listOf("due_mileage", "mileage", "reminder_mileage")),
                 ),
                 isCompleted = CarnotesValueParsers.parseBoolean(
                     CarnotesValueParsers.field(row, listOf("is_completed", "completed")),

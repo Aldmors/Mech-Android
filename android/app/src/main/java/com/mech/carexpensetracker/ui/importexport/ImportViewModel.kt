@@ -27,9 +27,20 @@ class ImportViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ImportUiState())
     val uiState: StateFlow<ImportUiState> = _uiState.asStateFlow()
 
+    private val stagedFiles = mutableMapOf<String, String>()
+
+    fun stageFiles(files: Map<String, String>) {
+        stagedFiles.putAll(files)
+        preview(stagedFiles.toMap())
+    }
+
     fun preview(files: Map<String, String>) {
         val preview = importCoordinator.preview(files)
-        _uiState.value = ImportUiState(preview = preview)
+        _uiState.value = _uiState.value.copy(preview = preview, error = null)
+    }
+
+    fun importStaged(mode: ImportMode = ImportMode.Merge) {
+        import(stagedFiles.toMap(), mode)
     }
 
     fun import(files: Map<String, String>, mode: ImportMode = ImportMode.Merge) {

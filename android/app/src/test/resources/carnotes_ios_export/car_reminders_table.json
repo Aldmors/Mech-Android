@@ -1,0 +1,93 @@
+[
+  {
+    "_id" : "7",
+    "add_reminder_date" : "1748649600000",
+    "add_reminder_mileage" : "108853",
+    "additional_text" : "",
+    "car_id" : "1",
+    "last_reminder_date" : "-1",
+    "last_reminder_mileage" : "119931",
+    "name" : "Filtr powietrza silnika",
+    "reminder_date" : "1780185600000",
+    "reminder_mileage" : "228784",
+    "sub_type" : "service_engine_air_filter"
+  },
+  {
+    "_id" : "6",
+    "add_reminder_date" : "1748217600000",
+    "add_reminder_mileage" : "-1",
+    "additional_text" : "",
+    "car_id" : "1",
+    "last_reminder_date" : "-1",
+    "last_reminder_mileage" : "-1",
+    "name" : "Skrzynia biegów",
+    "reminder_date" : "1811289600000",
+    "reminder_mileage" : "-1",
+    "sub_type" : "service_gearbox"
+  },
+  {
+    "_id" : "10",
+    "add_reminder_date" : "1754956800000",
+    "add_reminder_mileage" : "110233",
+    "additional_text" : "",
+    "car_id" : "1",
+    "last_reminder_date" : "-1",
+    "last_reminder_mileage" : "-1",
+    "name" : "Fuel filter",
+    "reminder_date" : "1849651200000",
+    "reminder_mileage" : "20000",
+    "sub_type" : "service_fuel_filter"
+  },
+  {
+    "_id" : "11",
+    "add_reminder_date" : "1755129600000",
+    "add_reminder_mileage" : "-1",
+    "additional_text" : "",
+    "car_id" : "1",
+    "last_reminder_date" : "-1",
+    "last_reminder_mileage" : "-1",
+    "name" : "AC nabicie i ozonowanie",
+    "reminder_date" : "1786665600000",
+    "reminder_mileage" : "-1",
+    "sub_type" : "service_ac_filter"
+  },
+  {
+    "_id" : "12",
+    "add_reminder_date" : "1760659200000",
+    "add_reminder_mileage" : "114000",
+    "additional_text" : "",
+    "car_id" : "1",
+    "last_reminder_date" : "-1",
+    "last_reminder_mileage" : "-1",
+    "name" : "Oil with filter",
+    "reminder_date" : "1792195200000",
+    "reminder_mileage" : "127000",
+    "sub_type" : "service_oil"
+  },
+  {
+    "_id" : "FE558091-FAC0-45E1-A69C-9F9D38FC429E",
+    "add_reminder_date" : "-1",
+    "add_reminder_mileage" : "10000",
+    "additional_text" : "",
+    "car_id" : "1",
+    "last_reminder_date" : "-1",
+    "last_reminder_mileage" : "119931",
+    "name" : "Filtr Powietrza",
+    "reminder_date" : "1818245520000",
+    "reminder_mileage" : "129931",
+    "sub_type" : ""
+  },
+  {
+    "_id" : "6BFD64DC-59EA-49CC-A09B-7832A3D1FB4F",
+    "add_reminder_date" : "-1",
+    "add_reminder_mileage" : "-1",
+    "additional_text" : "",
+    "car_id" : "1",
+    "last_reminder_date" : "-1",
+    "last_reminder_mileage" : "-1",
+    "name" : "AC",
+    "reminder_date" : "1818245580000",
+    "reminder_mileage" : "-1",
+    "sub_type" : ""
+  }
+]

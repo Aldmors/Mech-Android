@@ -8,7 +8,8 @@ import com.mech.carexpensetracker.data.repository.CarRepository
 import com.mech.carexpensetracker.data.repository.EventRepository
 import com.mech.carexpensetracker.data.repository.NoteRepository
 import com.mech.carexpensetracker.domain.model.EventType
-import com.mech.carexpensetracker.domain.service.CurrencyFormatter
+import com.mech.carexpensetracker.domain.model.VehicleUnits
+import com.mech.carexpensetracker.domain.service.ConsumptionCalculator
 import com.mech.carexpensetracker.domain.service.MileageValidationService
 import com.mech.carexpensetracker.domain.service.NoteSortingService
 import com.mech.carexpensetracker.domain.service.RecordCostService
@@ -35,6 +36,8 @@ data class EventsUiState(
     val filter: EventFilter = EventFilter.All,
     val searchQuery: String = "",
     val showingNotes: Boolean = false,
+    val vehicleUnits: VehicleUnits = VehicleUnits.Km,
+    val previousFuelById: Map<String, CarEventEntity> = emptyMap(),
 )
 
 @HiltViewModel
@@ -48,16 +51,19 @@ class EventsViewModel @Inject constructor(
 
     val uiState: StateFlow<EventsUiState> = combine(
         carRepository.observeSelectedCar().flatMapLatest { car ->
-            if (car == null) flowOf(emptyList<CarEventEntity>() to emptyList<CarNoteEntity>())
-            else combine(
-                eventRepository.observeEvents(car.externalId),
-                noteRepository.observeNotes(car.externalId),
-            ) { events, notes -> events to notes }
+            if (car == null) {
+                flowOf(Triple(emptyList<CarEventEntity>(), emptyList<CarNoteEntity>(), VehicleUnits.Km))
+            } else {
+                combine(
+                    eventRepository.observeEvents(car.externalId),
+                    noteRepository.observeNotes(car.externalId),
+                ) { events, notes -> Triple(events, notes, VehicleUnits.fromRaw(car.vehicleUnits)) }
+            }
         },
         filter,
         searchQuery,
     ) { data, currentFilter, query ->
-        val (events, notes) = data
+        val (events, notes, units) = data
         val filteredEvents = when (currentFilter) {
             EventFilter.All -> events
             EventFilter.Fuel -> events.filter { EventType.fromRaw(it.typeRaw) == EventType.Fuel }
@@ -77,6 +83,8 @@ class EventsViewModel @Inject constructor(
             filter = currentFilter,
             searchQuery = query,
             showingNotes = currentFilter == EventFilter.Notes,
+            vehicleUnits = units,
+            previousFuelById = ConsumptionCalculator.previousFuelEvents(events),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), EventsUiState())
 
@@ -158,7 +166,4 @@ class EventsViewModel @Inject constructor(
     fun deleteEvent(externalId: String) {
         viewModelScope.launch { eventRepository.deleteEvent(externalId) }
     }
-
-    fun formatCost(event: CarEventEntity): String =
-        CurrencyFormatter.formatOrDash(event.totalCost?.toBigDecimalOrNull())
 }

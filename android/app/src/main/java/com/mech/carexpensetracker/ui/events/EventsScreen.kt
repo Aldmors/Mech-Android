@@ -3,12 +3,16 @@ package com.mech.carexpensetracker.ui.events
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,15 +22,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mech.carexpensetracker.R
-import com.mech.carexpensetracker.data.db.entity.CarEventEntity
 import com.mech.carexpensetracker.data.db.entity.CarNoteEntity
 import com.mech.carexpensetracker.domain.model.EventType
 import com.mech.carexpensetracker.ui.components.AppCard
-import com.mech.carexpensetracker.ui.components.EventTypeBadge
+import com.mech.carexpensetracker.ui.components.AppIcons
+import com.mech.carexpensetracker.ui.components.AppLazyColumn
 import com.mech.carexpensetracker.ui.components.EmptyStateCard
+import com.mech.carexpensetracker.ui.components.EventRecordRow
 import com.mech.carexpensetracker.ui.theme.DesignTokens
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -38,8 +44,8 @@ fun EventsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var search by remember(state.searchQuery) { mutableStateOf(state.searchQuery) }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize().padding(DesignTokens.Spacing.md),
+    AppLazyColumn(
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(DesignTokens.Spacing.sm),
     ) {
         item {
@@ -51,6 +57,7 @@ fun EventsScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.search_events)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true,
             )
         }
@@ -60,6 +67,13 @@ fun EventsScreen(
                     FilterChip(
                         selected = state.filter == filter,
                         onClick = { viewModel.setFilter(filter) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = filterIcon(filter),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
                         label = {
                             Text(
                                 when (filter) {
@@ -85,8 +99,12 @@ fun EventsScreen(
             if (state.events.isEmpty()) {
                 item { EmptyStateCard(message = stringResource(R.string.no_events)) }
             } else {
-                items(state.events) { event ->
-                    EventRow(event = event, formatCost = viewModel::formatCost)
+                items(state.events, key = { it.externalId }) { event ->
+                    EventRecordRow(
+                        event = event,
+                        previousFuelEvent = state.previousFuelById[event.externalId],
+                        units = state.vehicleUnits,
+                    )
                 }
             }
         }
@@ -94,26 +112,12 @@ fun EventsScreen(
 }
 
 @Composable
-private fun EventRow(event: CarEventEntity, formatCost: (CarEventEntity) -> String) {
-    AppCard {
-        Text(
-            text = formatCost(event),
-            modifier = Modifier.padding(DesignTokens.Spacing.md),
-        )
-        EventTypeBadge(
-            type = EventType.fromRaw(event.typeRaw),
-            modifier = Modifier.padding(horizontal = DesignTokens.Spacing.md),
-        )
-        event.comment?.let {
-            Text(text = it, modifier = Modifier.padding(DesignTokens.Spacing.md))
-        }
-        if (event.secondaryFuelTypeRaw != null) {
-            Text(
-                text = "Dual fuel: ${event.fuelTypeRaw} + ${event.secondaryFuelTypeRaw}",
-                modifier = Modifier.padding(DesignTokens.Spacing.md),
-            )
-        }
-    }
+private fun filterIcon(filter: EventFilter) = when (filter) {
+    EventFilter.All -> Icons.Default.FilterList
+    EventFilter.Fuel -> AppIcons.eventType(EventType.Fuel)
+    EventFilter.Service -> AppIcons.eventType(EventType.Repair)
+    EventFilter.Documents -> AppIcons.eventType(EventType.Papers)
+    EventFilter.Notes -> Icons.AutoMirrored.Filled.Notes
 }
 
 @Composable

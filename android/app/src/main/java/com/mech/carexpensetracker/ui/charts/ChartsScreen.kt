@@ -1,8 +1,9 @@
 package com.mech.carexpensetracker.ui.charts
 
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,8 +19,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mech.carexpensetracker.R
 import com.mech.carexpensetracker.domain.model.ChartDatePreset
 import com.mech.carexpensetracker.domain.model.ChartKind
+import com.mech.carexpensetracker.ui.components.AppLazyColumn
 import com.mech.carexpensetracker.ui.components.EmptyStateCard
-import com.mech.carexpensetracker.ui.components.SectionHeader
 import com.mech.carexpensetracker.ui.theme.DesignTokens
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottomAxis
@@ -31,6 +32,7 @@ import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChartsScreen(
     modifier: Modifier = Modifier,
@@ -40,28 +42,19 @@ fun ChartsScreen(
     var kind by remember { mutableStateOf(ChartKind.MonthlySpending) }
     var preset by remember { mutableStateOf(ChartDatePreset.TwelveMonths) }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize().padding(DesignTokens.Spacing.md),
-    ) {
+    AppLazyColumn(modifier = modifier) {
         item {
-            SectionHeader(title = stringResource(R.string.charts))
-        }
-        item {
-            ChartKind.entries.forEach { chartKind ->
-                FilterChip(
-                    selected = kind == chartKind,
-                    onClick = { kind = chartKind; viewModel.load(chartKind, preset) },
-                    label = { Text(chartKind.label) },
-                )
-            }
-        }
-        item {
-            ChartDatePreset.entries.forEach { datePreset ->
-                FilterChip(
-                    selected = preset == datePreset,
-                    onClick = { preset = datePreset; viewModel.load(kind, datePreset) },
-                    label = { Text(datePreset.label) },
-                )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(DesignTokens.Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(DesignTokens.Spacing.sm),
+            ) {
+                ChartKind.entries.forEach { chartKind ->
+                    FilterChip(
+                        selected = kind == chartKind,
+                        onClick = { kind = chartKind; viewModel.load(chartKind, preset) },
+                        label = { Text(chartKind.label) },
+                    )
+                }
             }
         }
         item {
@@ -69,6 +62,20 @@ fun ChartsScreen(
                 ChartContent(state = state)
             } else {
                 EmptyStateCard(message = stringResource(R.string.no_data))
+            }
+        }
+        item {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(DesignTokens.Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(DesignTokens.Spacing.sm),
+            ) {
+                ChartDatePreset.entries.forEach { datePreset ->
+                    FilterChip(
+                        selected = preset == datePreset,
+                        onClick = { preset = datePreset; viewModel.load(kind, datePreset) },
+                        label = { Text(datePreset.label) },
+                    )
+                }
             }
         }
     }
@@ -110,7 +117,7 @@ private fun ChartContent(state: ChartsUiState) {
                     bottomAxis = rememberBottomAxis(),
                 ),
                 modelProducer = modelProducer,
-                modifier = Modifier.padding(DesignTokens.Spacing.md),
+                modifier = Modifier.padding(vertical = DesignTokens.Spacing.sm),
             )
         }
         ChartKind.FuelConsumption, ChartKind.CumulativeCost -> {
@@ -121,7 +128,7 @@ private fun ChartContent(state: ChartsUiState) {
                     bottomAxis = rememberBottomAxis(),
                 ),
                 modelProducer = modelProducer,
-                modifier = Modifier.padding(DesignTokens.Spacing.md),
+                modifier = Modifier.padding(vertical = DesignTokens.Spacing.sm),
             )
         }
     }

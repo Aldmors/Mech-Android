@@ -66,6 +66,10 @@ class ImportCoordinator(
         val reminders = CarnotesParser.parseReminders(reminderRows)
         val notes = CarnotesParser.parseNotes(noteRows)
 
+        require(cars.isNotEmpty() || events.isEmpty()) {
+            "Missing garage_table.json: found ${events.size} events but no cars."
+        }
+
         cars.forEach { car ->
             val existing = carDao.getByExternalId(car.externalId)
             carDao.upsert(car)

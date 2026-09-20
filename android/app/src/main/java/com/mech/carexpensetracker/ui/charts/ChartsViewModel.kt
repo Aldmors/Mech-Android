@@ -49,7 +49,6 @@ class ChartsViewModel @Inject constructor(
                 eventRepository.getEvents(car.externalId),
                 preset,
             )
-            val units = VehicleUnits.fromRaw(car.vehicleUnits)
             when (kind) {
                 ChartKind.MonthlySpending -> {
                     val bars = ChartDataService.monthlySpending(events)
@@ -63,7 +62,7 @@ class ChartsViewModel @Inject constructor(
                     )
                 }
                 ChartKind.FuelConsumption -> {
-                    val points = ChartDataService.fuelConsumptionPoints(events, units)
+                    val points = ChartDataService.fuelConsumptionPoints(events, VehicleUnits.Km)
                     _uiState.value = ChartsUiState(
                         chartKind = kind,
                         preset = preset,

@@ -7,13 +7,15 @@ import java.util.Currency
 import java.util.Locale
 
 object CurrencyFormatter {
-    fun format(amount: BigDecimal?, locale: Locale = Locale.getDefault()): String {
+    private val plnLocale = Locale.forLanguageTag("pl-PL")
+
+    fun format(amount: BigDecimal?, locale: Locale = plnLocale): String {
         if (amount == null) return ""
         val formatter = NumberFormat.getCurrencyInstance(locale)
-        return formatter.format(amount)
+        return formatter.format(amount).replace('\u00A0', ' ').replace('\u202F', ' ')
     }
 
-    fun formatOrDash(amount: BigDecimal?, locale: Locale = Locale.getDefault()): String {
+    fun formatOrDash(amount: BigDecimal?, locale: Locale = plnLocale): String {
         if (amount == null) return "—"
         return format(amount, locale)
     }
@@ -24,11 +26,11 @@ object CurrencyFormatter {
         return cleaned.toBigDecimalOrNull()
     }
 
-    fun currencySymbol(locale: Locale = Locale.getDefault()): String {
+    fun currencySymbol(locale: Locale = plnLocale): String {
         return try {
-            Currency.getInstance(locale).symbol
+            Currency.getInstance("PLN").getSymbol(locale)
         } catch (_: Exception) {
-            "$"
+            "zł"
         }
     }
 }
@@ -49,6 +51,11 @@ object RecordCostService {
 
     fun repairTotal(partsCost: BigDecimal?, labourCost: BigDecimal?): BigDecimal? {
         return totalCost(null, null, partsCost, labourCost, null)
+    }
+
+    fun unitPrice(cost: BigDecimal?, amount: BigDecimal?): BigDecimal? {
+        if (cost == null || amount == null || amount.signum() == 0) return null
+        return cost.divide(amount, 2, RoundingMode.HALF_UP)
     }
 }
 
@@ -183,13 +190,23 @@ object ObligatoryReminderService {
 }
 
 object ReminderAlertService {
+    fun dueReminders(
+        reminders: List<com.mech.carexpensetracker.data.db.entity.CarReminderEntity>,
+        currentMileage: Int?,
+        nowMillis: Long = System.currentTimeMillis(),
+    ): List<com.mech.carexpensetracker.data.db.entity.CarReminderEntity> {
+        return reminders.filter { reminder ->
+            if (reminder.isCompleted) return@filter false
+            val mileageDue = reminder.dueMileage != null && currentMileage != null && currentMileage >= reminder.dueMileage
+            val dateDue = reminder.dueDateMillis != null && reminder.dueDateMillis <= nowMillis
+            mileageDue || dateDue
+        }
+    }
+
     fun mileageRemindersDue(
         reminders: List<com.mech.carexpensetracker.data.db.entity.CarReminderEntity>,
         currentMileage: Int?,
     ): List<com.mech.carexpensetracker.data.db.entity.CarReminderEntity> {
-        if (currentMileage == null) return emptyList()
-        return reminders.filter {
-            !it.isCompleted && it.dueMileage != null && currentMileage >= it.dueMileage
-        }
+        return dueReminders(reminders, currentMileage).filter { it.dueMileage != null }
     }
 }

@@ -58,13 +58,20 @@ object ConsumptionCalculator {
         )
     }
 
+    fun consumptionIfFullTank(
+        event: CarEventEntity,
+        previousEvent: CarEventEntity?,
+        units: VehicleUnits,
+    ): BigDecimal? {
+        if (!event.fuelFullTank && !event.secondaryFuelFullTank) return null
+        return consumptionForEvent(event, previousEvent, units)
+    }
+
     fun averageConsumption(
         events: List<CarEventEntity>,
         units: VehicleUnits,
     ): BigDecimal? {
-        val fuelEvents = events
-            .filter { EventType.fromRaw(it.typeRaw) == EventType.Fuel }
-            .sortedBy { it.dateMillis }
+        val fuelEvents = chronologicalFuel(events)
         val values = fuelEvents.mapIndexedNotNull { index, event ->
             val previous = fuelEvents.getOrNull(index - 1)
             consumptionForEvent(event, previous, units)
@@ -73,4 +80,19 @@ object ConsumptionCalculator {
         return values.fold(BigDecimal.ZERO) { acc, v -> acc + v }
             .divide(BigDecimal(values.size), 2, RoundingMode.HALF_UP)
     }
+
+    fun previousFuelEvents(events: List<CarEventEntity>): Map<String, CarEventEntity> {
+        val fuelEvents = chronologicalFuel(events)
+        if (fuelEvents.size < 2) return emptyMap()
+        return buildMap {
+            for (index in 1 until fuelEvents.size) {
+                put(fuelEvents[index].externalId, fuelEvents[index - 1])
+            }
+        }
+    }
+
+    private fun chronologicalFuel(events: List<CarEventEntity>): List<CarEventEntity> =
+        events
+            .filter { EventType.fromRaw(it.typeRaw) == EventType.Fuel }
+            .sortedWith(compareBy({ it.dateMillis }, { it.id }))
 }

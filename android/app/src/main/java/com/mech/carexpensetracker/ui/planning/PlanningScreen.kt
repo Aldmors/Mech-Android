@@ -1,6 +1,7 @@
 package com.mech.carexpensetracker.ui.planning
 
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mech.carexpensetracker.R
 import com.mech.carexpensetracker.ui.components.AppCard
+import com.mech.carexpensetracker.ui.components.AppLazyColumn
 import com.mech.carexpensetracker.ui.components.MetricCard
 import com.mech.carexpensetracker.ui.components.SectionHeader
 import com.mech.carexpensetracker.ui.theme.DesignTokens
@@ -24,9 +26,7 @@ fun PlanningScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize().padding(DesignTokens.Spacing.md),
-    ) {
+    AppLazyColumn(modifier = modifier) {
         item {
             SectionHeader(title = stringResource(R.string.planned_expenses))
         }
@@ -34,6 +34,7 @@ fun PlanningScreen(
             MetricCard(
                 title = stringResource(R.string.savings_target),
                 value = state.monthlyTarget,
+                icon = Icons.Default.Savings,
             )
         }
         items(state.plannedItems) { item ->

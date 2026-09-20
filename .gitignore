@@ -1,4 +1,17 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.ap_
+*.aab
+
 # Android build outputs
 android/.gradle/
-android/**/build/
+android/app/build/
 android/local.properties

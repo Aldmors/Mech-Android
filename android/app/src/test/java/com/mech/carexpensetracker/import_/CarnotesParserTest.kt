@@ -40,4 +40,32 @@ class CarnotesParserTest {
         assertTrue(CarnotesValueParsers.parseBoolean("1"))
         assertEquals(false, CarnotesValueParsers.parseBoolean("0"))
     }
+
+    private fun readIosFixture(name: String): String {
+        val path = "carnotes_ios_export/$name"
+        return javaClass.classLoader?.getResourceAsStream(path)?.bufferedReader()?.readText()
+            ?: error("Missing fixture: $path")
+    }
+
+    @Test
+    fun parseIosExportGarageAndEvents() {
+        val garageJson = readIosFixture("garage_table.json")
+        val eventsJson = readIosFixture("car_events_table.json")
+        val remindersJson = readIosFixture("car_reminders_table.json")
+
+        assertEquals(CarnotesDtos.GARAGE_TABLE, CarnotesDtos.resolveTableKey("garage_table.json", garageJson))
+        assertEquals(CarnotesDtos.CAR_EVENTS_TABLE, CarnotesDtos.resolveTableKey("car_events_table.json", eventsJson))
+        assertEquals(CarnotesDtos.CAR_REMINDERS_TABLE, CarnotesDtos.resolveTableKey("car_reminders_table.json", remindersJson))
+
+        val cars = CarnotesParser.parseGarage(CarnotesParser.parseTable(garageJson))
+        val events = CarnotesParser.parseEvents(CarnotesParser.parseTable(eventsJson))
+        val reminders = CarnotesParser.parseReminders(CarnotesParser.parseTable(remindersJson))
+
+        assertEquals(2, cars.size)
+        assertEquals(67, events.size)
+        assertEquals(7, reminders.size)
+        assertEquals("17", events.first { it.externalId == "26" }.fuelAmount)
+        assertEquals("5.886", events.first { it.externalId == "26" }.fuelCost)
+        assertEquals("diesel", events.first { it.externalId == "26" }.fuelTypeRaw)
+    }
 }

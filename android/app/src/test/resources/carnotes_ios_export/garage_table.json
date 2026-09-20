@@ -1,0 +1,24 @@
+[
+  {
+    "_id" : "1",
+    "attached_files" : "[]",
+    "buy_date" : "1747267200000",
+    "comment" : "",
+    "image_url" : "",
+    "name" : "DS5",
+    "plate_number" : "KK6704N",
+    "vehicle_type" : "car",
+    "vehicle_units" : "km"
+  },
+  {
+    "_id" : "2326533D-332D-49FB-A276-1FD65D82E3DC",
+    "attached_files" : "[]",
+    "buy_date" : "1339419300000",
+    "comment" : "",
+    "image_url" : "",
+    "name" : "Spark",
+    "plate_number" : "",
+    "vehicle_type" : "car",
+    "vehicle_units" : "km"
+  }
+]
