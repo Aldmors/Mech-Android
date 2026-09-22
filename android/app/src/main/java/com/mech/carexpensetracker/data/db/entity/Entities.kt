@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.mech.carexpensetracker.domain.model.CarIcon
 
 @Entity(
     tableName = "cars",
@@ -17,6 +18,7 @@ data class CarEntity(
     val vehicleUnits: String = "km",
     val buyDateMillis: Long? = null,
     val iconColorName: String = "blue",
+    val iconName: String = CarIcon.DEFAULT,
     val primaryFuelTypeRaw: String = "gasoline",
     val alternativeFuelTypeRaw: String? = null,
 )
@@ -53,6 +55,7 @@ data class CarEventEntity(
     val secondaryFuelAmount: String? = null,
     val secondaryFuelCost: String? = null,
     val secondaryFuelFullTank: Boolean = false,
+    val name: String? = null,
 )
 
 @Entity(
@@ -77,6 +80,10 @@ data class CarReminderEntity(
     val isCompleted: Boolean = false,
     val syncedItemIdentifier: String? = null,
     val isObligatory: Boolean = false,
+    val colorHex: String = "#673AB7",
+    val createdAtMillis: Long = 0,
+    val intervalDays: Int? = null,
+    val intervalKm: Int? = null,
 )
 
 @Entity(
@@ -121,6 +128,8 @@ data class ExpenseCategoryEntity(
     val carExternalId: String,
     val name: String,
     val createdAtMillis: Long,
+    val colorHex: String = "#673AB7",
+    val iconName: String = "Category",
 )
 
 @Entity(

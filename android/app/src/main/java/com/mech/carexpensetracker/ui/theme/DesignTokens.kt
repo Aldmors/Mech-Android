@@ -5,9 +5,10 @@ import androidx.compose.ui.unit.dp
 
 object DesignTokens {
     object Palette {
-        val fuel = Color(0xFF3B82F6)
-        val repair = Color(0xFFF59E0B)
-        val papers = Color(0xFF6B7280)
+        val fuel = Color(0xFF2563EB)
+        val repair = Color(0xFFD97706)
+        val papers = Color(0xFF65A30D)
+        val care = Color(0xFF7C3AED)
     }
 
     object Spacing {

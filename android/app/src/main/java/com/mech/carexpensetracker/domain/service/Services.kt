@@ -22,8 +22,29 @@ object CurrencyFormatter {
 
     fun parse(input: String?): BigDecimal? {
         if (input.isNullOrBlank()) return null
-        val cleaned = input.replace(Regex("[^\\d.,-]"), "").replace(",", ".")
-        return cleaned.toBigDecimalOrNull()
+        val cleaned = input.replace(Regex("[^\\d.,-]"), "")
+        if (cleaned.isEmpty() || cleaned == "-") return null
+        val lastComma = cleaned.lastIndexOf(',')
+        val lastDot = cleaned.lastIndexOf('.')
+        val normalized = when {
+            lastComma >= 0 && lastDot >= 0 -> {
+                if (lastComma > lastDot) {
+                    cleaned.replace(".", "").replace(",", ".")
+                } else {
+                    cleaned.replace(",", "")
+                }
+            }
+            lastComma >= 0 -> cleaned.replace(",", ".")
+            else -> cleaned
+        }
+        return normalized.toBigDecimalOrNull()
+    }
+
+    fun parseStored(raw: String?): BigDecimal? {
+        if (raw.isNullOrBlank() || raw == "-1") return null
+        val value = parse(raw) ?: return null
+        if (value.signum() < 0) return null
+        return value
     }
 
     fun currencySymbol(locale: Locale = plnLocale): String {
@@ -49,12 +70,16 @@ object RecordCostService {
         return parts.fold(BigDecimal.ZERO) { acc, v -> acc + v }
     }
 
-    fun repairTotal(partsCost: BigDecimal?, labourCost: BigDecimal?): BigDecimal? {
-        return totalCost(null, null, partsCost, labourCost, null)
+    fun repairTotal(
+        partsCost: BigDecimal?,
+        labourCost: BigDecimal?,
+        explicitTotal: BigDecimal? = null,
+    ): BigDecimal? {
+        return totalCost(null, null, partsCost, labourCost, null) ?: explicitTotal
     }
 
     fun unitPrice(cost: BigDecimal?, amount: BigDecimal?): BigDecimal? {
-        if (cost == null || amount == null || amount.signum() == 0) return null
+        if (cost == null || amount == null || amount.signum() <= 0) return null
         return cost.divide(amount, 2, RoundingMode.HALF_UP)
     }
 }
@@ -65,6 +90,7 @@ object EventSummaryService {
         val fuelSpend: BigDecimal,
         val repairSpend: BigDecimal,
         val papersSpend: BigDecimal,
+        val careSpend: BigDecimal,
         val eventCount: Int,
     )
 
@@ -81,16 +107,18 @@ object EventSummaryService {
         var fuel = BigDecimal.ZERO
         var repair = BigDecimal.ZERO
         var papers = BigDecimal.ZERO
+        var care = BigDecimal.ZERO
         monthEvents.forEach { event ->
-            val cost = event.totalCost?.toBigDecimalOrNull() ?: BigDecimal.ZERO
+            val cost = CurrencyFormatter.parseStored(event.totalCost) ?: BigDecimal.ZERO
             when (com.mech.carexpensetracker.domain.model.EventType.fromRaw(event.typeRaw)) {
                 com.mech.carexpensetracker.domain.model.EventType.Fuel -> fuel += cost
                 com.mech.carexpensetracker.domain.model.EventType.Repair -> repair += cost
                 com.mech.carexpensetracker.domain.model.EventType.Papers -> papers += cost
+                com.mech.carexpensetracker.domain.model.EventType.Care -> care += cost
             }
         }
-        val total = fuel + repair + papers
-        return MonthlySummary(total, fuel, repair, papers, monthEvents.size)
+        val total = fuel + repair + papers + care
+        return MonthlySummary(total, fuel, repair, papers, care, monthEvents.size)
     }
 
     fun currentMileage(events: List<com.mech.carexpensetracker.data.db.entity.CarEventEntity>): Int? {
@@ -109,15 +137,14 @@ object OwnershipAnalyticsService {
 
     fun compute(
         events: List<com.mech.carexpensetracker.data.db.entity.CarEventEntity>,
-        buyDateMillis: Long?,
         units: com.mech.carexpensetracker.domain.model.VehicleUnits,
     ): OwnershipStats {
-        val totalCost = events.mapNotNull { it.totalCost?.toBigDecimalOrNull() }
+        val totalCost = events.mapNotNull { CurrencyFormatter.parseStored(it.totalCost) }
             .fold(BigDecimal.ZERO) { acc, v -> acc + v }
         val mileages = events.mapNotNull { it.mileage }.sorted()
         val totalDistance = if (mileages.size >= 2) mileages.last() - mileages.first() else null
         val now = System.currentTimeMillis()
-        val start = buyDateMillis ?: events.minOfOrNull { it.dateMillis } ?: now
+        val start = events.minOfOrNull { it.dateMillis } ?: now
         val monthsOwned = maxOf(
             1,
             ((now - start) / (30L * 24 * 60 * 60 * 1000)).toInt(),
@@ -142,14 +169,17 @@ object PlanningSavingsService {
     fun summarize(
         planned: List<com.mech.carexpensetracker.data.db.entity.PlannedExpenseEntity>,
     ): SavingsSummary {
-        val total = planned.mapNotNull { it.cost.toBigDecimalOrNull() }
+        val total = planned.mapNotNull { CurrencyFormatter.parseStored(it.cost) }
             .fold(BigDecimal.ZERO) { acc, v -> acc + v }
-        val maxMonths = planned.mapNotNull { it.months }.maxOrNull()
-        val monthly = if (maxMonths != null && maxMonths > 0) {
-            total.divide(BigDecimal(maxMonths), 2, RoundingMode.HALF_UP)
-        } else {
-            null
+        val monthlyParts = planned.mapNotNull { item ->
+            val cost = CurrencyFormatter.parseStored(item.cost) ?: return@mapNotNull null
+            val months = item.months ?: return@mapNotNull null
+            if (months <= 0) return@mapNotNull null
+            cost.divide(BigDecimal(months), 2, RoundingMode.HALF_UP)
         }
+        val monthly = monthlyParts.takeIf { it.isNotEmpty() }
+            ?.fold(BigDecimal.ZERO) { acc, v -> acc + v }
+        val maxMonths = planned.mapNotNull { it.months }.filter { it > 0 }.maxOrNull()
         return SavingsSummary(total, monthly, maxMonths)
     }
 }
@@ -189,17 +219,192 @@ object ObligatoryReminderService {
     }
 }
 
+object ReminderSchedule {
+    const val DATE_APPROACH_DAYS = 7
+    const val MILEAGE_APPROACH_KM = 200
+    const val KM_CALENDAR_REMAINING = 100
+    const val KM_CALENDAR_OFFSET_DAYS = 2
+
+    fun dueDateAfterYears(
+        years: Int,
+        nowMillis: Long = System.currentTimeMillis(),
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): Long {
+        return java.time.Instant.ofEpochMilli(nowMillis)
+            .atZone(zone)
+            .toLocalDate()
+            .plusYears(years.toLong())
+            .atStartOfDay(zone)
+            .toInstant()
+            .toEpochMilli()
+    }
+
+    fun dueDateAfterDays(
+        days: Int,
+        nowMillis: Long = System.currentTimeMillis(),
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): Long {
+        return java.time.Instant.ofEpochMilli(nowMillis)
+            .atZone(zone)
+            .toLocalDate()
+            .plusDays(days.toLong())
+            .atStartOfDay(zone)
+            .toInstant()
+            .toEpochMilli()
+    }
+
+    fun dueMileageAfterInterval(currentMileage: Int?, interval: Int): Int {
+        return (currentMileage ?: 0) + interval
+    }
+
+    fun intervalDaysBetween(
+        fromMillis: Long,
+        toMillis: Long,
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): Int {
+        val from = java.time.Instant.ofEpochMilli(fromMillis).atZone(zone).toLocalDate()
+        val to = java.time.Instant.ofEpochMilli(toMillis).atZone(zone).toLocalDate()
+        return java.time.temporal.ChronoUnit.DAYS.between(from, to).toInt().coerceAtLeast(1)
+    }
+
+    fun daysUntilDue(
+        dueMillis: Long,
+        nowMillis: Long,
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): Long {
+        val due = java.time.Instant.ofEpochMilli(dueMillis).atZone(zone).toLocalDate()
+        val now = java.time.Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+        return java.time.temporal.ChronoUnit.DAYS.between(now, due)
+    }
+
+    fun averageDailyDistance(
+        events: List<com.mech.carexpensetracker.data.db.entity.CarEventEntity>,
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): Double? {
+        val points = events.mapNotNull { event ->
+            val mileage = event.mileage ?: return@mapNotNull null
+            mileage to event.dateMillis
+        }.sortedBy { it.second }
+        if (points.size < 2) return null
+        val distance = points.last().first - points.first().first
+        if (distance <= 0) return null
+        val start = java.time.Instant.ofEpochMilli(points.first().second).atZone(zone).toLocalDate()
+        val end = java.time.Instant.ofEpochMilli(points.last().second).atZone(zone).toLocalDate()
+        val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).coerceAtLeast(1)
+        return distance.toDouble() / days
+    }
+
+    fun kmCalendarDate(
+        dueMileage: Int,
+        currentMileage: Int?,
+        nowDate: java.time.LocalDate,
+        avgDailyDistance: Double?,
+    ): java.time.LocalDate? {
+        val remaining = dueMileage - (currentMileage ?: 0)
+        if (remaining <= KM_CALENDAR_REMAINING) {
+            return nowDate.plusDays(KM_CALENDAR_OFFSET_DAYS.toLong())
+        }
+        if (avgDailyDistance == null || avgDailyDistance <= 0.0) return null
+        // ponytail: whole-history average daily distance; swap for a 30-day window if estimates drift
+        val kmUntilThreshold = remaining - KM_CALENDAR_REMAINING
+        val daysUntilThreshold = kotlin.math.ceil(kmUntilThreshold / avgDailyDistance).toLong()
+        return nowDate.plusDays(daysUntilThreshold + KM_CALENDAR_OFFSET_DAYS)
+    }
+
+    fun nextReminder(
+        reminder: com.mech.carexpensetracker.data.db.entity.CarReminderEntity,
+        nowMillis: Long,
+        currentMileage: Int?,
+        newExternalId: String,
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): com.mech.carexpensetracker.data.db.entity.CarReminderEntity? {
+        val intervalDays = reminder.intervalDays
+            ?: reminder.dueDateMillis?.let { due ->
+                reminder.createdAtMillis.takeIf { it > 0 }?.let { created ->
+                    intervalDaysBetween(created, due, zone)
+                }
+            }
+        val intervalKm = reminder.intervalKm
+        if (intervalDays == null && intervalKm == null) return null
+        return reminder.copy(
+            id = 0,
+            externalId = newExternalId,
+            createdAtMillis = nowMillis,
+            intervalDays = intervalDays,
+            intervalKm = intervalKm,
+            dueDateMillis = intervalDays?.let { dueDateAfterDays(it, nowMillis, zone) },
+            dueMileage = intervalKm?.let { dueMileageAfterInterval(currentMileage, it) },
+            isCompleted = false,
+            syncedItemIdentifier = null,
+            isObligatory = false,
+        )
+    }
+}
+
+data class ReminderStatus(
+    val reminder: com.mech.carexpensetracker.data.db.entity.CarReminderEntity,
+    val isDue: Boolean,
+    val isApproaching: Boolean,
+    val daysLeft: Long?,
+    val remainingKm: Int?,
+)
+
 object ReminderAlertService {
+    fun status(
+        reminder: com.mech.carexpensetracker.data.db.entity.CarReminderEntity,
+        currentMileage: Int?,
+        nowMillis: Long = System.currentTimeMillis(),
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): ReminderStatus {
+        val daysLeft = reminder.dueDateMillis?.let { ReminderSchedule.daysUntilDue(it, nowMillis, zone) }
+        val remainingKm = reminder.dueMileage?.let { due -> currentMileage?.let { due - it } }
+        if (reminder.isCompleted) {
+            return ReminderStatus(reminder, isDue = false, isApproaching = false, daysLeft, remainingKm)
+        }
+        val dateDue = reminder.dueDateMillis != null && reminder.dueDateMillis <= nowMillis
+        val kmDue = remainingKm != null && remainingKm <= 0
+        val dateApproaching = daysLeft != null && daysLeft <= ReminderSchedule.DATE_APPROACH_DAYS
+        val kmApproaching = remainingKm != null && remainingKm < ReminderSchedule.MILEAGE_APPROACH_KM
+        return ReminderStatus(
+            reminder = reminder,
+            isDue = dateDue || kmDue,
+            isApproaching = dateApproaching || kmApproaching,
+            daysLeft = daysLeft,
+            remainingKm = remainingKm,
+        )
+    }
+
     fun dueReminders(
         reminders: List<com.mech.carexpensetracker.data.db.entity.CarReminderEntity>,
         currentMileage: Int?,
         nowMillis: Long = System.currentTimeMillis(),
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): List<com.mech.carexpensetracker.data.db.entity.CarReminderEntity> {
+        return reminders.map { status(it, currentMileage, nowMillis, zone) }
+            .filter { it.isDue }
+            .map { it.reminder }
+    }
+
+    fun approachingReminders(
+        reminders: List<com.mech.carexpensetracker.data.db.entity.CarReminderEntity>,
+        currentMileage: Int?,
+        nowMillis: Long = System.currentTimeMillis(),
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): List<com.mech.carexpensetracker.data.db.entity.CarReminderEntity> {
+        return reminders.map { status(it, currentMileage, nowMillis, zone) }
+            .filter { it.isApproaching }
+            .map { it.reminder }
+    }
+
+    @JvmName("approachingRemindersByCar")
+    fun approachingReminders(
+        reminders: List<com.mech.carexpensetracker.data.db.entity.CarReminderEntity>,
+        mileageByCar: Map<String, Int?>,
+        nowMillis: Long = System.currentTimeMillis(),
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
     ): List<com.mech.carexpensetracker.data.db.entity.CarReminderEntity> {
         return reminders.filter { reminder ->
-            if (reminder.isCompleted) return@filter false
-            val mileageDue = reminder.dueMileage != null && currentMileage != null && currentMileage >= reminder.dueMileage
-            val dateDue = reminder.dueDateMillis != null && reminder.dueDateMillis <= nowMillis
-            mileageDue || dateDue
+            status(reminder, mileageByCar[reminder.carExternalId], nowMillis, zone).isApproaching
         }
     }
 

@@ -12,9 +12,15 @@ object Routes {
     const val EditCar = "edit_car/{carId}"
     const val AddFuel = "add_fuel"
     const val AddExpense = "add_expense"
+    const val EditFuel = "edit_fuel/{eventId}"
+    const val EditExpense = "edit_expense/{eventId}"
     const val Import = "import"
     const val Reminders = "reminders"
-    const val Categories = "categories"
+    const val AddReminder = "add_reminder"
+    const val EditReminder = "edit_reminder/{reminderId}"
 
     fun editCar(carId: String) = "edit_car/$carId"
+    fun editFuel(eventId: String) = "edit_fuel/$eventId"
+    fun editExpense(eventId: String) = "edit_expense/$eventId"
+    fun editReminder(reminderId: String) = "edit_reminder/$reminderId"
 }

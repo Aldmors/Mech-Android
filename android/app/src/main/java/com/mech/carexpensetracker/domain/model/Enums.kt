@@ -4,10 +4,12 @@ enum class EventType(val raw: String) {
     Fuel("fuel"),
     Repair("repair"),
     Papers("papers"),
+    Care("care"),
     ;
 
     companion object {
-        fun fromRaw(raw: String?): EventType = entries.find { it.raw == raw } ?: Repair
+        fun fromRaw(raw: String?): EventType =
+            entries.find { it.raw.equals(raw, ignoreCase = true) } ?: Repair
     }
 }
 
@@ -19,8 +21,14 @@ enum class FuelType(val raw: String, val displayName: String) {
     ;
 
     companion object {
-        fun fromRaw(raw: String?): FuelType = entries.find { it.raw == raw } ?: Gasoline
+        fun fromRaw(raw: String?): FuelType =
+            entries.find { it.raw.equals(raw, ignoreCase = true) } ?: Gasoline
     }
+}
+
+enum class FuelSlot {
+    Primary,
+    Secondary,
 }
 
 enum class CarIconColor(val raw: String) {
@@ -35,6 +43,40 @@ enum class CarIconColor(val raw: String) {
     companion object {
         fun fromRaw(raw: String?): CarIconColor = entries.find { it.raw == raw } ?: Blue
     }
+}
+
+object CarIcon {
+    const val DEFAULT = "DirectionsCar"
+
+    val names = listOf(
+        DEFAULT,
+        "ElectricCar",
+        "CarRental",
+        "CarRepair",
+        "LocalTaxi",
+        "LocalShipping",
+        "AirportShuttle",
+        "TwoWheeler",
+        "PedalBike",
+        "Moped",
+        "ElectricMoped",
+        "DirectionsBus",
+        "DirectionsBoat",
+        "Agriculture",
+        "RvHookup",
+        "Commute",
+        "Garage",
+        "TimeToLeave",
+        "LocalCarWash",
+        "LocalGasStation",
+        "EvStation",
+        "Speed",
+        "Traffic",
+    )
+
+    private val lookup = names.associateBy { it.lowercase() }
+
+    fun resolve(name: String?): String = name?.lowercase()?.let { lookup[it] } ?: DEFAULT
 }
 
 enum class VehicleUnits(val raw: String) {
@@ -58,18 +100,18 @@ enum class NotePriority(val raw: String) {
     }
 }
 
-enum class ChartDatePreset(val label: String, val months: Int?) {
-    ThreeMonths("3 months", 3),
-    SixMonths("6 months", 6),
-    TwelveMonths("12 months", 12),
-    AllTime("All time", null),
+enum class ChartDatePreset(val months: Int?) {
+    ThreeMonths(3),
+    SixMonths(6),
+    TwelveMonths(12),
+    AllTime(null),
 }
 
-enum class ChartKind(val label: String) {
-    MonthlySpending("Monthly spending"),
-    FuelConsumption("Fuel consumption"),
-    CategoryBreakdown("Category breakdown"),
-    CumulativeCost("Cumulative cost"),
+enum class ChartKind {
+    MonthlySpending,
+    FuelConsumption,
+    CategoryBreakdown,
+    CumulativeCost,
 }
 
 enum class PlanningHorizon(val raw: String) {

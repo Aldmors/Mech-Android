@@ -37,7 +37,7 @@ class PlanningViewModel @Inject constructor(
                     PlanningUiState(
                         monthlyTarget = CurrencyFormatter.formatOrDash(summary.monthlyTarget),
                         plannedItems = planned.map {
-                            PlannedItemUi(it.name, CurrencyFormatter.formatOrDash(it.cost.toBigDecimalOrNull()))
+                            PlannedItemUi(it.name, CurrencyFormatter.formatOrDash(CurrencyFormatter.parseStored(it.cost)))
                         },
                     )
                 }

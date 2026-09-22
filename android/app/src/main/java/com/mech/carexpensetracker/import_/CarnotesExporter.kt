@@ -1,14 +1,17 @@
 package com.mech.carexpensetracker.import_
 
+import com.mech.carexpensetracker.data.EventPhotoFiles
 import com.mech.carexpensetracker.data.db.entity.CarEntity
 import com.mech.carexpensetracker.data.db.entity.CarEventEntity
 import com.mech.carexpensetracker.data.db.entity.CarNoteEntity
 import com.mech.carexpensetracker.data.db.entity.CarReminderEntity
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
+import com.mech.carexpensetracker.data.db.entity.EventPhotoEntity
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 object CarnotesExporter {
     fun exportGarage(cars: List<CarEntity>): String {
@@ -22,6 +25,7 @@ object CarnotesExporter {
                         put("vehicle_units", JsonPrimitive(car.vehicleUnits))
                         car.buyDateMillis?.let { put("buy_date", JsonPrimitive(it.toString())) }
                         put("icon_color", JsonPrimitive(car.iconColorName))
+                        put("icon_name", JsonPrimitive(car.iconName))
                         put("primary_fuel_type", JsonPrimitive(car.primaryFuelTypeRaw))
                         car.alternativeFuelTypeRaw?.let { put("alternative_fuel_type", JsonPrimitive(it)) }
                     },
@@ -42,6 +46,7 @@ object CarnotesExporter {
                         event.mileage?.let { put("mileage", JsonPrimitive(it.toString())) }
                         event.comment?.let { put("comment", JsonPrimitive(it)) }
                         event.totalCost?.let { put("total_cost", JsonPrimitive(it)) }
+                        event.name?.let { put("name", JsonPrimitive(it)) }
                         event.categoryName?.let { put("category", JsonPrimitive(it)) }
                         event.partsCost?.let { put("parts_cost", JsonPrimitive(it)) }
                         event.labourCost?.let { put("labour_cost", JsonPrimitive(it)) }
@@ -76,6 +81,11 @@ object CarnotesExporter {
                         reminder.syncedItemIdentifier?.let {
                             put("synced_item_identifier", JsonPrimitive(it))
                         }
+                        put("is_obligatory", JsonPrimitive(if (reminder.isObligatory) "1" else "0"))
+                        put("color_hex", JsonPrimitive(reminder.colorHex))
+                        put("created_at", JsonPrimitive(reminder.createdAtMillis.toString()))
+                        reminder.intervalDays?.let { put("interval_days", JsonPrimitive(it.toString())) }
+                        reminder.intervalKm?.let { put("interval_km", JsonPrimitive(it.toString())) }
                     },
                 )
             }
@@ -99,5 +109,40 @@ object CarnotesExporter {
                 )
             }
         }.toString()
+    }
+
+    fun exportPhotos(photos: List<EventPhotoEntity>): String {
+        return buildJsonArray {
+            photos.forEach { photo ->
+                add(
+                    buildJsonObject {
+                        put("_id", JsonPrimitive(photo.externalId))
+                        put("event_id", JsonPrimitive(photo.eventExternalId))
+                        put("file", JsonPrimitive(EventPhotoFiles.zipEntryName(photo.imagePath, photo.externalId)))
+                        put("created_at", JsonPrimitive(photo.createdAtMillis.toString()))
+                    },
+                )
+            }
+        }.toString()
+    }
+
+    fun toZip(
+        tables: Map<String, String>,
+        binaries: Map<String, ByteArray> = emptyMap(),
+    ): ByteArray {
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            tables.forEach { (name, json) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(json.toByteArray(Charsets.UTF_8))
+                zip.closeEntry()
+            }
+            binaries.forEach { (name, bytes) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(bytes)
+                zip.closeEntry()
+            }
+        }
+        return out.toByteArray()
     }
 }

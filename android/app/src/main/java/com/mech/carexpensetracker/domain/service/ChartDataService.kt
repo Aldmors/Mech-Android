@@ -14,6 +14,7 @@ object ChartDataService {
         val fuel: BigDecimal,
         val repair: BigDecimal,
         val papers: BigDecimal,
+        val care: BigDecimal,
     )
 
     data class ConsumptionPoint(
@@ -50,48 +51,62 @@ object ChartDataService {
             var fuel = BigDecimal.ZERO
             var repair = BigDecimal.ZERO
             var papers = BigDecimal.ZERO
+            var care = BigDecimal.ZERO
             monthEvents.forEach { event ->
-                val cost = event.totalCost?.toBigDecimalOrNull() ?: BigDecimal.ZERO
+                val cost = CurrencyFormatter.parseStored(event.totalCost) ?: BigDecimal.ZERO
                 when (EventType.fromRaw(event.typeRaw)) {
                     EventType.Fuel -> fuel += cost
                     EventType.Repair -> repair += cost
                     EventType.Papers -> papers += cost
+                    EventType.Care -> care += cost
                 }
             }
-            MonthlySpendingBar(key, fuel, repair, papers)
+            MonthlySpendingBar(key, fuel, repair, papers, care)
         }
     }
 
     fun fuelConsumptionPoints(
         events: List<CarEventEntity>,
         units: com.mech.carexpensetracker.domain.model.VehicleUnits,
+        visibleEvents: List<CarEventEntity> = events,
     ): List<ConsumptionPoint> {
-        val fuelEvents = events
-            .filter { EventType.fromRaw(it.typeRaw) == EventType.Fuel }
+        val byId = ConsumptionCalculator.displayedConsumptionByEventId(events, units)
+        val visibleIds = visibleEvents.map { it.externalId }.toSet()
+        return events
+            .filter { EventType.fromRaw(it.typeRaw) == EventType.Fuel && it.externalId in visibleIds }
             .sortedBy { it.dateMillis }
-        return fuelEvents.mapIndexedNotNull { index, event ->
-            val previous = fuelEvents.getOrNull(index - 1)
-            val value = ConsumptionCalculator.consumptionForEvent(event, previous, units) ?: return@mapIndexedNotNull null
-            val label = Instant.ofEpochMilli(event.dateMillis).atZone(ZoneId.systemDefault()).toLocalDate().toString()
-            ConsumptionPoint(label, value)
-        }
+            .mapNotNull { event ->
+                val value = byId[event.externalId] ?: return@mapNotNull null
+                val label = Instant.ofEpochMilli(event.dateMillis).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+                ConsumptionPoint(label, value)
+            }
     }
 
     fun categoryBreakdown(events: List<CarEventEntity>): List<CategorySlice> {
-        val repairEvents = events.filter { EventType.fromRaw(it.typeRaw) == EventType.Repair }
-        val grouped = repairEvents.groupBy { it.categoryName ?: "Other" }
-        return grouped.map { (name, items) ->
-            val amount = items.mapNotNull { it.totalCost?.toBigDecimalOrNull() }
-                .fold(BigDecimal.ZERO) { acc, v -> acc + v }
-            CategorySlice(name, amount)
-        }.filter { it.amount > BigDecimal.ZERO }
+        val amounts = EventType.entries.associateWith { BigDecimal.ZERO }.toMutableMap()
+        events.forEach { event ->
+            val cost = CurrencyFormatter.parseStored(event.totalCost) ?: BigDecimal.ZERO
+            val type = EventType.fromRaw(event.typeRaw)
+            amounts[type] = amounts.getValue(type) + cost
+        }
+        val slices = EventType.entries.map { type ->
+            CategorySlice(eventTypeLabel(type), amounts.getValue(type))
+        }
+        return if (slices.any { it.amount.signum() > 0 }) slices else emptyList()
+    }
+
+    private fun eventTypeLabel(type: EventType): String = when (type) {
+        EventType.Fuel -> "Paliwo"
+        EventType.Repair -> "Serwis"
+        EventType.Papers -> "Dokumenty"
+        EventType.Care -> "Pielęgnacja"
     }
 
     fun cumulativeCost(events: List<CarEventEntity>): List<CumulativePoint> {
         val sorted = events.sortedBy { it.dateMillis }
         var running = BigDecimal.ZERO
         return sorted.map { event ->
-            running += event.totalCost?.toBigDecimalOrNull() ?: BigDecimal.ZERO
+            running += CurrencyFormatter.parseStored(event.totalCost) ?: BigDecimal.ZERO
             val label = Instant.ofEpochMilli(event.dateMillis).atZone(ZoneId.systemDefault()).toLocalDate().toString()
             CumulativePoint(label, running)
         }
